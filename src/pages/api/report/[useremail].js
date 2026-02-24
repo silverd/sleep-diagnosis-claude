@@ -45,11 +45,23 @@ export default async function handler(req, res) {
       answer: r.option?.label ?? r.textAnswer ?? '',
     }))
 
+    let diagnosis
+    try {
+      diagnosis = calculateDiagnosis(answers)
+    } catch (calcError) {
+      console.log('calculateDiagnosis error', calcError.message)
+      return res.status(200).json({
+        completed: false,
+        calculationError: calcError.message,
+        answerCount: responses.length,
+      })
+    }
+
     const result = {
       useremail,
       completed: true,
       testTime: responses[0]?.updatedAt ?? null,
-      ...calculateDiagnosis(answers),
+      ...diagnosis,
     }
 
     return res.status(200).json(result)

@@ -22,6 +22,7 @@ export default function Report() {
   const [currentContent, setCurrentContent] = useState('dashBoard')
   const [loadingReportData, setLoadingReportData] = useState(true)
   const [reportData, setReportData] = useState({})
+  const [reportIncomplete, setReportIncomplete] = useState(false)
   const router = useRouter()
   const { locale } = router
 
@@ -549,10 +550,20 @@ export default function Report() {
   useEffect(() => {
     const getReportData = async (email) => {
       setLoadingReportData(true)
-      const res = await fetch(`/api/report/${email}`)
-      const data = await res.json()
-      console.log('report', data)
-      setReportData(generateReport(data))
+      try {
+        const res = await fetch(`/api/report/${email}`)
+        const data = await res.json()
+        console.log('report', data)
+        if (res.ok && data.completed) {
+          setReportData(generateReport(data))
+          setReportIncomplete(false)
+        } else {
+          setReportIncomplete(true)
+        }
+      } catch (err) {
+        console.log('report fetch error', err)
+        setReportIncomplete(true)
+      }
       setLoadingReportData(false)
     }
     if (userEmail) getReportData(userEmail)
@@ -657,6 +668,22 @@ export default function Report() {
         <main className="mx-auto max-w-9xl pt-4 lg:pt-0">
           {status === 'loading' || loadingReportData ? (
             <WaitingSpinner />
+          ) : reportIncomplete ? (
+            <div className="flex flex-col items-center justify-center py-24 text-center">
+              <div className="mb-4 text-5xl">📋</div>
+              <h2 className="text-xl font-semibold text-gray-800">
+                Questionnaire not complete
+              </h2>
+              <p className="mt-2 text-sm text-gray-500">
+                Please complete all questionnaires before viewing your report.
+              </p>
+              <a
+                href="/diagnosis"
+                className="mt-6 rounded-lg bg-bluebg-500 px-5 py-2.5 text-sm font-medium text-white hover:bg-bluebg-600"
+              >
+                Go to Questionnaire
+              </a>
+            </div>
           ) : (
             pageContent[currentContent]
           )}
