@@ -1,0 +1,198 @@
+// ===========================================================================
+// Sleep Diagnosis CMS — Prisma Schema
+// DB: PostgreSQL
+// ===========================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum Role {
+  USER        // regular patient
+  ADMIN       // content manager / clinician
+  SUPER_ADMIN // platform owner
+}
+
+enum QuestionType {
+  mcq  // multiple-choice question (uses Option rows)
+  text // free-text answer (stored in Response.textAnswer)
+}
+
+enum QuestionnaireStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+// ---------------------------------------------------------------------------
+// User
+// ---------------------------------------------------------------------------
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  name          String?
+  image         String?
+  is_premium    Boolean   @default(false)
+  role       Role      @default(USER)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  // NextAuth required relations
+  accounts Account[]
+  sessions Session[]
+
+  // Application relations
+  responses Response[]
+
+  @@map("users")
+}
+
+// ---------------------------------------------------------------------------
+// NextAuth — Accounts & Sessions (mirrors PrismaAdapter schema)
+// ---------------------------------------------------------------------------
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ---------------------------------------------------------------------------
+// Questionnaire
+// ---------------------------------------------------------------------------
+
+model Questionnaire {
+  id          String              @id @default(cuid())
+  title       String
+  slug        String              @unique
+  description String?             @db.Text
+  status      QuestionnaireStatus @default(DRAFT)
+  version     Int                 @default(1)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  questions Question[]
+
+  @@map("questionnaires")
+}
+
+// ---------------------------------------------------------------------------
+// Question
+// ---------------------------------------------------------------------------
+
+model Question {
+  id              String       @id @default(cuid())
+  text            String       @db.Text
+  textCn          String?      @db.Text  // Chinese translation
+  type            QuestionType @default(mcq)
+  subType         String?               // exactYear | exactHeight | exactWeight | exactNumber | exactTime
+  order           Int                   // display order within its questionnaire
+  groupId         Int          @default(1) // diagnosis page number (1-based)
+  psqiId          String?               // PSQI scoring identifier
+  header          String?      @db.Text // optional section header (English)
+  headerCn        String?      @db.Text // optional section header (Chinese)
+  isRequired      Boolean      @default(true)
+  questionnaireId String
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  questionnaire Questionnaire @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  options       Option[]
+  responses     Response[]
+
+  @@index([questionnaireId, order])
+  @@index([questionnaireId, groupId])
+  @@map("questions")
+}
+
+// ---------------------------------------------------------------------------
+// Option (MCQ choices)
+// ---------------------------------------------------------------------------
+
+model Option {
+  id         String   @id @default(cuid())
+  label      String   // human-readable label shown to patient (English)
+  labelCn    String?  // Chinese label
+  value      String   // internal score / key value
+  order      Int      @default(0) // display order within question
+  score      Float?   // optional numeric score for PSQI-style scoring
+  questionId String
+  createdAt  DateTime @default(now())
+
+  question  Question   @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  responses Response[]
+
+  @@index([questionId])
+  @@map("options")
+}
+
+// ---------------------------------------------------------------------------
+// Response (user answers)
+// ---------------------------------------------------------------------------
+
+model Response {
+  id         String   @id @default(cuid())
+  userId     String
+  questionId String
+  optionId   String?  // populated for mcq answers
+  textAnswer String?  @db.Text // populated for text answers
+  score      Float?   // computed score at time of answer
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  option   Option?  @relation(fields: [optionId], references: [id])
+
+  // One answer per user per question (upsert pattern)
+  @@unique([userId, questionId])
+  @@index([userId])
+  @@index([questionId])
+  @@map("responses")
+}

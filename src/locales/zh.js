@@ -1,0 +1,15 @@
+export default {
+  sleepSimple: '让每个人的睡眠更简单',
+  narrowDistance: '科学的方法触手可及，让我们与科学的奥秘更近一步。',
+  weGuidePeople: '我们致力于推广科学精神和多元文化，并助力人们提升健康水平、幸福感和工作效率。',
+  continue: '请继续进行测试',
+  howItWorks: '如何进行测试？',
+  specifyDetails: '请详细说明：',
+  previous: '返回',
+  complete: '完成',
+  next: '下一步',
+  signInHeader: '登录您的账户',
+  signInTxt: '请使用您的电子邮箱登录',
+  signIn: '登录',
+  email: '电子邮箱',
+}
