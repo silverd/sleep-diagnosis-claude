@@ -19,7 +19,6 @@ RUN npx prisma generate
 
 # Build Next.js (DATABASE_URL placeholder needed for Prisma generate)
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV DATABASE_URL="postgresql://local:local@localhost:5432/sleep_diagnosis?schema=public"
 RUN npm run build
 
 # =============================================================================
