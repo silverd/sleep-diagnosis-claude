@@ -17,8 +17,10 @@ RUN npm ci
 COPY . .
 RUN npx prisma generate
 
-# Build Next.js — do NOT set DATABASE_URL here or it gets inlined and overrides compose at runtime
+# Build Next.js — placeholder only; webpack is configured not to inline so runtime uses compose env
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV DATABASE_URL="postgresql://local:local@localhost:5432/sleep_diagnosis?schema=public"
+ENV DATABASE_URL_UNPOOLED="postgresql://local:local@localhost:5432/sleep_diagnosis?schema=public"
 RUN npm run build
 
 # =============================================================================
